@@ -9,6 +9,13 @@ REM Get script directory
 set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
+REM Cleanup old containers first
+echo [0/5] Cleaning up old containers...
+docker stop amz-auto-ai-redis docker-redis 2>nul
+docker rm amz-auto-ai-redis docker-redis 2>nul
+echo [OK] Old containers cleaned
+echo.
+
 echo [1/5] Starting database services (PostgreSQL + Redis)...
 docker-compose up -d
 if %errorlevel% neq 0 (
@@ -78,7 +85,8 @@ echo API Docs: http://localhost:8000/docs
 echo Dify UI:  http://localhost:3001
 echo Dify API: http://localhost:5001
 echo Database: PostgreSQL (port 5433)
-echo Cache:    Redis (port 6379)
+echo Cache AMZ:  Redis (port 6380)
+echo Cache Dify: Redis (port 6381)
 echo.
 echo Press Ctrl+C to stop all services
 echo.
