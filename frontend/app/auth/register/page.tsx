@@ -37,6 +37,7 @@ export default function RegisterPage() {
     try {
       const response = await fetch('http://localhost:8000/api/auth/register', {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
         },
