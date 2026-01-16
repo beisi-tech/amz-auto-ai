@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -39,20 +39,21 @@ export default function LoginPage() {
       if (response.ok) {
         localStorage.setItem('token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
-        toast.success('登录成功')
+        toast.success('鐧诲綍鎴愬姛')
         router.push('/dashboard/workflow')
       } else {
-        toast.error(data.detail || '登录失败')
+        toast.error(data.detail || '鐧诲綍澶辫触')
+        setVerified(false)
       }
     } catch (error) {
-      toast.error('网络错误，请稍后重试')
+      toast.error('缃戠粶閿欒锛岃绋嶅悗閲嶈瘯')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="w-full max-w-md p-8">
         <MagicCard className="p-8 space-y-6">
           <div className="text-center space-y-2">
@@ -60,13 +61,13 @@ export default function LoginPage() {
               AMZ Auto AI
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              欢迎回来，请登录您的账户
+              娆㈣繋鍥炴潵锛岃鐧诲綍鎮ㄧ殑璐︽埛
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="email">閭</Label>
               <Input
                 id="email"
                 type="email"
@@ -81,11 +82,11 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+              <Label htmlFor="password">瀵嗙爜</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="•••••"
+                placeholder="鈥⑩€⑩€⑩€⑩€⑩€⑩€?
                 value={formData.password}
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
@@ -95,22 +96,26 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <SlideVerify onVerify={setVerified} />
+            </div>
+
             <AnimatedButton
               type="submit"
               loading={isLoading}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
-              登录
+              鐧诲綍
             </AnimatedButton>
           </form>
 
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-            还没有账户？{' '}
+            杩樻病鏈夎处鎴凤紵{' '}
             <Link
               href="/auth/register"
               className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
             >
-              立即注册
+              绔嬪嵆娉ㄥ唽
             </Link>
           </p>
         </MagicCard>
