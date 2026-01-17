@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     dify_api_key: str
     dify_api_url: str
     dify_frontend_url: str = "http://localhost:3001"
+    # Dify 数据库配置（直接查询）
+    dify_db_url: str = "postgresql+psycopg2://postgres:difyai123456@localhost:5434/dify"
 
 
 @lru_cache()

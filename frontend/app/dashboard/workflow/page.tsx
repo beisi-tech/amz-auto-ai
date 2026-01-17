@@ -59,7 +59,7 @@ export default function WorkflowListPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setApps(data.data || [])
+        setApps(data.apps || [])
       } else {
         console.error('获取 Dify 应用失败')
         setApps([])
@@ -79,47 +79,23 @@ export default function WorkflowListPage() {
   }
 
   const handleCreateApp = async () => {
-    if (!newAppName.trim()) {
-      toast.error('请输入应用名称')
-      return
-    }
+    // 直接在 Dify 原生界面创建应用
+    const difyUrl = process.env.NEXT_PUBLIC_DIFY_URL || 'http://localhost:3001'
 
-    setIsCreating(true)
-    try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/api/dify/apps', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newAppName,
-          description: newAppDescription,
-          mode: newAppMode,
-        }),
-      })
+    // 打开 Dify 的应用创建页面
+    window.open(`${difyUrl}/app/create?mode=${newAppMode}`, '_blank')
 
-      if (response.ok) {
-        const data = await response.json()
-        toast.success('应用创建成功！')
-        setIsCreateDialogOpen(false)
-        setNewAppName('')
-        setNewAppDescription('')
-        await fetchDifyApps()
-        // 自动跳转到新创建的应用编辑器
-        const difyUrl = process.env.NEXT_PUBLIC_DIFY_URL || 'http://localhost:3000'
-        window.open(`${difyUrl}/app/${data.id}/workflow`, '_blank')
-      } else {
-        const errorData = await response.json()
-        toast.error(`创建失败: ${errorData.detail || '未知错误'}`)
-      }
-    } catch (error) {
-      console.error('创建 Dify 应用失败:', error)
-      toast.error('创建失败，请稍后重试')
-    } finally {
-      setIsCreating(false)
-    }
+    // 显示提示
+    toast.success('正在打开 Dify 创建页面，创建后自动同步')
+
+    // 刷新应用列表
+    setTimeout(() => {
+      fetchDifyApps()
+    }, 3000)
+
+    setIsCreateDialogOpen(false)
+    setNewAppName('')
+    setNewAppDescription('')
   }
 
   const handleOpenDifyHome = () => {

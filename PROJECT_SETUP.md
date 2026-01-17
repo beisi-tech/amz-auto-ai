@@ -39,7 +39,6 @@
 - Python 3.10+
 - Docker & Docker Compose
 - Git
-- Dify 实例（本地部署或云端实例）
 
 ### 1. 克隆项目
 
@@ -49,12 +48,26 @@ cd d:\Desktop\amz-auto-ai
 
 ### 2. 配置 Dify
 
+Dify 已经集成在项目的统一 Docker Compose 配置中，无需单独部署。
+
+#### Dify 环境配置（可选）
+
+Dify 的所有配置都在 `dify/docker/.env` 文件中。如需自定义配置，可以修改该文件：
+
+```env
+# Dify API Key（首次启动后从界面获取）
+DIFY_API_KEY=your-dify-api-key
+
+# 其他配置项...
+```
+
 #### 前端配置
 
 创建 `frontend/.env` 文件：
 
 ```env
-NEXT_PUBLIC_DIFY_URL=http://localhost:3000
+NEXT_PUBLIC_DIFY_URL=http://localhost:3001
+NEXT_PUBLIC_DIFY_API_URL=http://localhost:5001
 ```
 
 #### 后端配置
@@ -63,39 +76,57 @@ NEXT_PUBLIC_DIFY_URL=http://localhost:3000
 
 ```python
 # Dify 配置
-dify_api_key: str = "your-dify-api-key"  # Dify API 密钥
-dify_api_url: str = "http://localhost:3000/v1"  # Dify API 地址
-dify_frontend_url: str = "http://localhost:3000"  # Dify 前端地址
+dify_api_key: str = "your-dify-api-key"  # Dify API 密钥（从 Dify 界面获取）
+dify_api_url: str = "http://localhost:5001/v1"  # Dify API 地址
+dify_frontend_url: str = "http://localhost:3001"  # Dify 前端地址
 ```
 
-**Dify 部署方式：**
+**首次启动后获取 API Key：**
+1. 运行 `start.bat` 启动所有服务
+2. 打开 http://localhost:3001
+3. 注册/登录账号（首次访问需要设置管理员账号）
+4. 创建应用
+5. 在应用设置中获取 API Key
+6. 将 API Key 配置到 `backend/app/config.py` 中
 
-1. **本地部署 Docker 版**（推荐用于开发）
-   ```bash
-   # 访问 https://docs.dify.ai/guides/workflow
-   # 按照官方文档使用 Docker 部署 Dify
-   ```
+**Dify 部署选项：**
+
+1. **使用集成的 Dify**（推荐）
+   - Dify 已集成在 `docker-compose-unified.yml` 中
+   - 所有服务在同一个网络中，可以直接互通
 
 2. **使用 Dify Cloud**
    - 注册账号：https://cloud.dify.ai/
    - 在设置中获取 API Key
    - 将 `NEXT_PUBLIC_DIFY_URL` 设置为 `https://cloud.dify.ai`
+   - 将 `dify_api_url` 设置为 `https://api.dify.ai/v1`
 
-3. **使用 Dify 官方 Demo**
-   - Dify 提供在线演示环境
-   - 适合快速体验功能
+### 3. 启动所有服务
 
-### 3. 启动数据库服务
+使用 `start.bat` 启动所有服务：
 
 ```bash
-docker-compose up -d
+# Windows
+start.bat
+
+# 或手动启动
+docker-compose -f docker-compose-unified.yml up -d
 ```
 
 这将启动：
-- PostgreSQL (端口 5433)
-- Redis (端口 6379)
+- AMZ Auto AI 数据库：
+  - PostgreSQL (端口 5433)
+  - Redis (端口 6380)
+- Dify 服务：
+  - Dify PostgreSQL (端口 5434)
+  - Dify Redis (端口 6381)
+  - Dify API (端口 5001)
+  - Dify Web UI (端口 3001)
+  - Dify Worker, Sandbox, Plugin Daemon 等
 
-### 3. 配置后端环境
+**注意：** 所有服务都在同一个 `amz-network` Docker 网络中，可以相互访问。
+
+### 4. 配置后端环境
 
 编辑 `backend/.env` 文件，设置必要的环境变量：
 
@@ -104,9 +135,10 @@ DATABASE_URL=postgresql://amz_user:amz_password@localhost:5433/amz_auto_ai
 SECRET_KEY=your-secret-key-change-this-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://localhost:6380/0
 DIFY_API_KEY=your-dify-api-key
-DIFY_API_URL=https://api.dify.ai/v1
+DIFY_API_URL=http://localhost:5001/v1
+DIFY_FRONTEND_URL=http://localhost:3001
 ```
 
 ### 4. 安装 Python 依赖并启动后端

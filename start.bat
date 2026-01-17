@@ -10,43 +10,23 @@ set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
 REM Cleanup old containers first
-echo [0/5] Cleaning up old containers...
+echo [0/4] Cleaning up old containers...
 docker stop amz-auto-ai-redis docker-redis 2>nul
 docker rm amz-auto-ai-redis docker-redis 2>nul
 echo [OK] Old containers cleaned
 echo.
 
-echo [1/5] Starting database services (PostgreSQL + Redis)...
-docker-compose up -d
+echo [1/4] Starting all services (AMZ + Dify)...
+docker-compose -f docker-compose-unified.yml up -d
 if %errorlevel% neq 0 (
     echo ERROR: Docker Compose startup failed
     pause
     exit /b 1
 )
-echo [OK] Database services started
+echo [OK] All services started
 echo.
 
-echo [2/5] Starting Dify services...
-cd dify\docker
-docker compose -p amz-auto-ai up -d
-if %errorlevel% neq 0 (
-    echo ERROR: Dify Docker Compose startup failed
-    pause
-    exit /b 1
-)
-echo [OK] Dify services started (UI: http://localhost:3001)
-echo Connecting Dify to amz-network...
-docker network connect amz-auto-ai-amz-network amz-auto-ai-api 2>nul
-docker network connect amz-auto-ai-amz-network amz-auto-ai-worker 2>nul
-docker network connect amz-auto-ai-amz-network amz-auto-ai-worker-beat 2>nul
-docker network connect amz-auto-ai-amz-network amz-auto-ai-web 2>nul
-docker network connect amz-auto-ai-amz-network amz-auto-ai-nginx 2>nul
-docker network connect amz-auto-ai-amz-network amz-auto-ai-redis 2>nul
-echo [OK] Dify connected to amz-network
-cd /d "%SCRIPT_DIR%"
-echo.
-
-echo [3/5] Starting backend service...
+echo [2/4] Starting backend service...
 cd backend
 if not exist "venv" (
     echo Creating virtual environment...
@@ -61,7 +41,7 @@ cd /d "%SCRIPT_DIR%"
 echo [OK] Backend server started
 echo.
 
-echo [4/5] Starting frontend service...
+echo [3/4] Starting frontend service...
 cd frontend
 if not exist "node_modules" (
     echo Installing dependencies...
@@ -73,7 +53,7 @@ cd /d "%SCRIPT_DIR%"
 echo [OK] Frontend server started
 echo.
 
-echo [5/5] Waiting for services to be ready...
+echo [4/4] Waiting for services to be ready...
 echo.
 echo ========================================
 echo [OK] All services are running
@@ -84,7 +64,8 @@ echo Backend:  http://localhost:8000
 echo API Docs: http://localhost:8000/docs
 echo Dify UI:  http://localhost:3001
 echo Dify API: http://localhost:5001
-echo Database: PostgreSQL (port 5433)
+echo Database AMZ: PostgreSQL (port 5433)
+echo Database Dify: PostgreSQL (port 5434)
 echo Cache AMZ:  Redis (port 6380)
 echo Cache Dify: Redis (port 6381)
 echo.
@@ -92,12 +73,6 @@ echo Press Ctrl+C to stop all services
 echo.
 
 pause
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-api 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-worker 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-worker-beat 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-web 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-nginx 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-redis 2>nul
 cd dify\docker
 docker compose -p amz-auto-ai down
 cd /d "%SCRIPT_DIR%"

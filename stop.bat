@@ -11,26 +11,9 @@ taskkill /f /im python.exe >nul 2>&1
 echo [OK] Application services stopped
 
 echo.
-echo Disconnecting Dify network connections...
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-api 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-worker 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-worker-beat 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-web 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-nginx 2>nul
-docker network disconnect amz-auto-ai-amz-network amz-auto-ai-redis 2>nul
-echo [OK] Dify network disconnected
-
-echo.
-echo Stopping Dify services...
-cd dify\docker
-docker compose -p amz-auto-ai down
-cd ..
-echo [OK] Dify services stopped
-
-echo.
-echo Stopping database services...
-docker-compose down
-echo [OK] Database services stopped
+echo Stopping all Docker services...
+docker-compose -f docker-compose-unified.yml down
+echo [OK] All Docker services stopped
 
 echo.
 echo ========================================
