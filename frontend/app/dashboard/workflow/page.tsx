@@ -21,6 +21,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from 'sonner'
 
 interface DifyApp {
@@ -79,23 +82,56 @@ export default function WorkflowListPage() {
   }
 
   const handleCreateApp = async () => {
-    // 直接在 Dify 原生界面创建应用
-    const difyUrl = process.env.NEXT_PUBLIC_DIFY_URL || 'http://localhost:3001'
+    if (!newAppName.trim()) {
+      toast.error('请输入应用名称')
+      return
+    }
 
-    // 打开 Dify 的应用创建页面
-    window.open(`${difyUrl}/app/create?mode=${newAppMode}`, '_blank')
+    setIsCreating(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:8000/api/dify/apps', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newAppName,
+          description: newAppDescription,
+          mode: newAppMode,
+          icon: '🤖',
+          icon_background: '#3B82F6'
+        })
+      })
 
-    // 显示提示
-    toast.success('正在打开 Dify 创建页面，创建后自动同步')
-
-    // 刷新应用列表
-    setTimeout(() => {
-      fetchDifyApps()
-    }, 3000)
-
-    setIsCreateDialogOpen(false)
-    setNewAppName('')
-    setNewAppDescription('')
+      if (response.ok) {
+        const newApp = await response.json()
+        toast.success('应用创建成功！')
+        
+        // 刷新应用列表
+        await fetchDifyApps()
+        
+        // 关闭对话框并重置表单
+        setIsCreateDialogOpen(false)
+        setNewAppName('')
+        setNewAppDescription('')
+        setNewAppMode('workflow')
+        
+        // 可选：打开新创建的应用
+        setTimeout(() => {
+          handleOpenDify(newApp.id)
+        }, 500)
+      } else {
+        const error = await response.json()
+        toast.error(error.detail || '创建失败')
+      }
+    } catch (error) {
+      console.error('创建应用失败:', error)
+      toast.error('创建应用时发生错误')
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   const handleOpenDifyHome = () => {
@@ -292,36 +328,42 @@ export default function WorkflowListPage() {
               <div className="space-y-4 py-4">
                 <div>
                   <Label htmlFor="app-name">应用名称 *</Label>
-                  <input
+                  <Input
                     id="app-name"
                     type="text"
                     value={newAppName}
                     onChange={(e) => setNewAppName(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="输入应用名称"
+                    className="mt-1"
+                    disabled={isCreating}
                   />
                 </div>
                 <div>
                   <Label htmlFor="app-description">应用描述</Label>
-                  <textarea
+                  <Textarea
                     id="app-description"
                     value={newAppDescription}
                     onChange={(e) => setNewAppDescription(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
                     placeholder="输入应用描述（可选）"
+                    className="mt-1 min-h-[100px]"
+                    disabled={isCreating}
                   />
                 </div>
                 <div>
                   <Label htmlFor="app-mode">应用类型</Label>
-                  <select
-                    id="app-mode"
+                  <Select
                     value={newAppMode}
-                    onChange={(e) => setNewAppMode(e.target.value as 'workflow' | 'chatbot')}
-                    className="mt-1 w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onValueChange={(value) => setNewAppMode(value as 'workflow' | 'chatbot')}
+                    disabled={isCreating}
                   >
-                    <option value="workflow">工作流</option>
-                    <option value="chatbot">聊天机器人</option>
-                  </select>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="选择应用类型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="workflow">🔄 工作流</SelectItem>
+                      <SelectItem value="chatbot">💬 聊天机器人</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>
