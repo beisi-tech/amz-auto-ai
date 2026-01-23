@@ -14,7 +14,7 @@ from app.schemas.user import User
 # 配置日志
 logger = logging.getLogger(__name__)
 
-# 创建 Dify 数据库连接
+# 创建 Dify 数据库连接 (仅用于读取列表，保持高性能)
 try:
     dify_engine = create_engine(settings.dify_db_url, pool_pre_ping=True)
 except Exception as e:
@@ -22,6 +22,39 @@ except Exception as e:
     dify_engine = None
 
 router = APIRouter()
+
+
+async def get_dify_admin_token() -> str:
+    """
+    获取 Dify 管理员 Token (用于调用 Console API)
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.dify_base_url}/console/api/login",
+                json={
+                    "email": settings.dify_admin_email,
+                    "password": settings.dify_admin_password,
+                    "provider": "email"
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Dify 登录失败: {response.text}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="无法认证 Dify 管理员账户"
+                )
+                
+            data = response.json()
+            return data.get("data", {}).get("access_token")
+    except httpx.RequestError as e:
+        logger.error(f"Dify 连接失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="无法连接到 Dify 服务"
+        )
 
 
 def get_dify_apps_from_db() -> List[Dict[str, Any]]:
@@ -69,7 +102,6 @@ def get_dify_apps_from_db() -> List[Dict[str, Any]]:
         )
     except Exception as e:
         logger.error(f"读取 Dify 应用时出错: {e}")
-        return []
         return []
 
 
@@ -119,6 +151,7 @@ async def get_dify_app(
     """
     try:
         async with httpx.AsyncClient() as client:
+            # 尝试使用 API Key 访问 (Service API)
             response = await client.get(
                 f"{settings.dify_api_url}/apps/{app_id}",
                 headers={
@@ -127,9 +160,24 @@ async def get_dify_app(
                 },
                 timeout=30.0
             )
+            # 如果 Service API 失败，可能需要使用 Console API (TODO: 完善 Console API 读取)
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as e:
+        # 如果是 404，可能是 API Key 权限问题或 App 不存在
+        # 降级：从数据库读取基本信息
+        if e.response.status_code == 404:
+             with dify_engine.connect() as conn:
+                result = conn.execute(text("SELECT * FROM apps WHERE id = :id"), {"id": app_id})
+                row = result.fetchone()
+                if row:
+                    return {
+                        "id": str(row.id),
+                        "name": row.name,
+                        "mode": row.mode,
+                        "description": row.description
+                    }
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Dify API 错误: {e.response.text if e.response else str(e)}"
@@ -138,38 +186,6 @@ async def get_dify_app(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取 Dify 应用失败: {str(e)}"
-        )
-
-
-@router.get("/dify/apps/{app_id}/workflow")
-async def get_dify_app_workflow(
-    app_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    获取 Dify 应用的工作流详情
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{settings.dify_api_url}/apps/{app_id}/workflows",
-                headers={
-                    "Authorization": f"Bearer {settings.dify_api_key}",
-                    "Content-Type": "application/json"
-                },
-                timeout=30.0
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Dify API 错误: {e.response.text if e.response else str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取 Dify 工作流失败: {str(e)}"
         )
 
 
@@ -213,127 +229,56 @@ async def create_dify_app(
     current_user: User = Depends(get_current_user)
 ):
     """
-    创建 Dify 应用（直接写入数据库）
+    创建 Dify 应用（通过 Dify Console API）
     
-    创建完整的工作流应用，包括必要的配置
+    不再直接操作数据库，而是模拟管理员登录调用 Dify API 创建应用
     """
-    if dify_engine is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Dify 数据库连接未初始化，请检查配置"
-        )
-    
     try:
-        import uuid
-        from datetime import datetime
+        # 1. 获取管理员 Token
+        token = await get_dify_admin_token()
         
-        with dify_engine.begin() as conn:
-            # 获取第一个 tenant_id
-            tenant_result = conn.execute(text("SELECT id FROM tenants LIMIT 1"))
-            tenant_row = tenant_result.fetchone()
-
-            if not tenant_row:
+        # 2. 准备数据
+        payload = {
+            "name": app_data.get("name", "新应用"),
+            "description": app_data.get("description", ""),
+            "mode": app_data.get("mode", "workflow"),
+            "icon": app_data.get("icon", "🤖"),
+            "icon_background": app_data.get("icon_background", "#3B82F6")
+        }
+        
+        # 3. 调用 Dify Console API 创建应用
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.dify_base_url}/console/api/apps",
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 201 or response.status_code == 200:
+                return response.json()
+            else:
+                error_detail = response.text
+                try:
+                    error_json = response.json()
+                    error_detail = error_json.get("message", error_detail)
+                except:
+                    pass
+                    
+                logger.error(f"Dify 创建应用失败: {response.status_code} - {response.text}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Dify 系统未初始化，请在 Dify UI 中先创建账户"
+                    detail=f"Dify 创建应用失败: {error_detail}"
                 )
 
-            tenant_id = tenant_row[0]
-            
-            # 生成唯一ID
-            app_id = str(uuid.uuid4())
-            now = datetime.utcnow()
-            
-            # 获取第一个账户ID
-            account_result = conn.execute(text("SELECT id FROM accounts LIMIT 1"))
-            account_row = account_result.fetchone()
-            
-            if not account_row:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="未找到账户，请先在 Dify UI 中创建账户"
-                )
-            
-            created_by = account_row[0]
-            
-            # 准备应用数据
-            name = app_data.get("name", "新工作流")
-            description = app_data.get("description", "")
-            mode = app_data.get("mode", "workflow")
-            icon = app_data.get("icon", "🤖")
-            icon_background = app_data.get("icon_background", "#3B82F6")
-            
-            # 插入应用记录
-            conn.execute(text("""
-                INSERT INTO apps (
-                    id, tenant_id, name, description, mode, icon, icon_background,
-                    status, enable_site, enable_api, api_rpm, api_rph,
-                    is_demo, is_public, created_by, created_at, updated_by, updated_at
-                )
-                VALUES (
-                    :id, :tenant_id, :name, :description, :mode, :icon, :icon_background,
-                    'normal', false, true, 60, 3600,
-                    false, false, :created_by, :created_at, :created_by, :updated_at
-                )
-            """), {
-                "id": app_id,
-                "tenant_id": tenant_id,
-                "name": name,
-                "description": description,
-                "mode": mode,
-                "icon": icon,
-                "icon_background": icon_background,
-                "created_by": created_by,
-                "created_at": now,
-                "updated_at": now
-            })
-            
-            # 为工作流模式创建默认配置
-            if mode == "workflow":
-                # 创建基本的工作流配置
-                workflow_config = {
-                    "nodes": [],
-                    "edges": [],
-                    "viewport": {"x": 0, "y": 0, "zoom": 1}
-                }
-                
-                conn.execute(text("""
-                    INSERT INTO app_model_configs (
-                        id, app_id, provider, model_id, configs, created_at, updated_at
-                    )
-                    VALUES (
-                        :id, :app_id, '', '', '{}', :created_at, :updated_at
-                    )
-                """), {
-                    "id": str(uuid.uuid4()),
-                    "app_id": app_id,
-                    "created_at": now,
-                    "updated_at": now
-                })
-
-            # 获取创建的应用
-            result = conn.execute(text("""
-                SELECT id, name, description, mode, icon, icon_background, created_at, updated_at
-                FROM apps
-                WHERE id = :app_id
-            """), {"app_id": app_id})
-
-            new_app = result.fetchone()
-
-            return {
-                "id": str(new_app.id),
-                "name": new_app.name,
-                "description": new_app.description,
-                "mode": new_app.mode,
-                "icon": new_app.icon,
-                "icon_background": new_app.icon_background,
-                "created_at": new_app.created_at.isoformat(),
-                "updated_at": new_app.updated_at.isoformat()
-            }
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        import traceback
-        print(f"创建应用错误详情: {traceback.format_exc()}")
+        logger.error(f"创建应用未知错误: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"创建 Dify 应用失败: {str(e)}"
+            detail=f"系统内部错误: {str(e)}"
         )

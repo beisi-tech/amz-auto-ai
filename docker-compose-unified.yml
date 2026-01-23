@@ -199,6 +199,19 @@ services:
       PLUGIN_MAX_PACKAGE_SIZE: ${PLUGIN_MAX_PACKAGE_SIZE:-52428800}
       PLUGIN_DAEMON_TIMEOUT: ${PLUGIN_DAEMON_TIMEOUT:-600.0}
       INNER_API_KEY_FOR_PLUGIN: ${PLUGIN_DIFY_INNER_API_KEY:-QaHbTe77CtuXmsfyhR7+vRjI/+XbV1AaFy691iy+kGDv2Jvy0/eAh8Y1}
+      # SSO Configuration (AMZ Auto AI as OIDC Provider)
+      SSO_PROTOCOL: oidc
+      OIDC_CLIENT_ID: dify_client
+      OIDC_CLIENT_SECRET: dify_secret
+      OIDC_ISSUER: http://host.docker.internal:8000
+      OIDC_AUTH_ENDPOINT: http://host.docker.internal:8000/api/oauth/authorize
+      OIDC_TOKEN_ENDPOINT: http://host.docker.internal:8000/api/oauth/token
+      OIDC_USER_INFO_ENDPOINT: http://host.docker.internal:8000/api/oauth/userinfo
+      OIDC_JWKS_URI: http://host.docker.internal:8000/api/oauth/jwks
+      OIDC_REDIRECT_URI: http://localhost:3001/console/api/oauth/callback/oidc
+      # Important: Allow host access
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       dify-init:
         condition: service_completed_successfully

@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     dify_api_key: str
     dify_api_url: str
     dify_frontend_url: str = "http://localhost:3001"
+    
+    # Dify Admin Authentication (for Console API access)
+    dify_admin_email: str = "admin@dify.ai"
+    dify_admin_password: str = "password"  # Default Dify password, change in production
+    
+    # Dify Base URL (internal access for backend)
+    dify_base_url: str = "http://localhost:5001"
+    
     # Dify 数据库配置（直接查询）
     dify_db_url: str = "postgresql+psycopg2://postgres:difyai123456@localhost:5434/dify"
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MagicCard } from '@/components/magic/MagicCard'
 import { AnimatedButton } from '@/components/magic/AnimatedButton'
-import { Plus, Settings, Edit, Workflow as WorkflowIcon, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
+import { Plus, Settings, Edit, Workflow as WorkflowIcon, ExternalLink, RefreshCw, Loader2, Play } from 'lucide-react'
 import { DropdownMenu, DropdownItem } from '@/components/magic/Dropdown'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/magic/Dialog'
 import { Input } from '@/components/magic/Input'
@@ -26,6 +26,12 @@ export default function WorkflowListPage() {
   const [apps, setApps] = useState<DifyApp[]>([])
   const [loading, setLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isRunDialogOpen, setIsRunDialogOpen] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
+  const [selectedApp, setSelectedApp] = useState<DifyApp | null>(null)
+  const [runInputs, setRunInputs] = useState<Record<string, any>>({})
+  const [runResult, setRunResult] = useState<any>(null)
+  
   const [isCreating, setIsCreating] = useState(false)
   const [newAppName, setNewAppName] = useState('')
   const [newAppDescription, setNewAppDescription] = useState('')
@@ -34,6 +40,7 @@ export default function WorkflowListPage() {
   useEffect(() => {
     fetchDifyApps()
   }, [])
+
 
   const fetchDifyApps = async () => {
     setLoading(true)
@@ -101,9 +108,8 @@ export default function WorkflowListPage() {
         setNewAppDescription('')
         setNewAppMode('workflow')
         
-        setTimeout(() => {
-          handleOpenDify(newApp.id)
-        }, 500)
+        // Removed auto-jump to Dify to improve UX
+        // The user can click the app card to open it when ready
       } else {
         const error = await response.json()
         toast.error(error.detail || '创建失败')
@@ -114,6 +120,45 @@ export default function WorkflowListPage() {
     } finally {
       setIsCreating(false)
     }
+  }
+
+  const handleRunApp = async () => {
+    if (!selectedApp) return
+
+    setIsRunning(true)
+    setRunResult(null)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:8000/api/dify/apps/${selectedApp.id}/run`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(runInputs)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setRunResult(result)
+        toast.success('运行成功')
+      } else {
+        const error = await response.json()
+        toast.error(error.detail || '运行失败')
+      }
+    } catch (error) {
+      console.error('运行应用失败:', error)
+      toast.error('运行应用时发生错误')
+    } finally {
+      setIsRunning(false)
+    }
+  }
+
+  const openRunDialog = (app: DifyApp) => {
+    setSelectedApp(app)
+    setRunInputs({})
+    setRunResult(null)
+    setIsRunDialogOpen(true)
   }
 
   const handleOpenDifyHome = () => {
@@ -229,6 +274,13 @@ export default function WorkflowListPage() {
                         </button>
                       }
                     >
+                      <DropdownItem onClick={(e) => {
+                        e.stopPropagation()
+                        openRunDialog(app)
+                      }}>
+                        <Play className="mr-2 h-4 w-4 text-green-600" />
+                        运行应用
+                      </DropdownItem>
                       <DropdownItem onClick={(e) => {
                         e.stopPropagation()
                         handleOpenDify(app.id)
@@ -361,7 +413,72 @@ export default function WorkflowListPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={isRunDialogOpen} onOpenChange={setIsRunDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>运行应用: {selectedApp?.name}</DialogTitle>
+              <DialogDescription>
+                输入参数并运行应用
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid gap-4">
+                <Textarea
+                  label="输入参数 (JSON格式，例如 {'query': 'hello'})"
+                  placeholder='{"query": "hello"}'
+                  value={JSON.stringify(runInputs, null, 2) === '{}' ? '' : JSON.stringify(runInputs, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      setRunInputs(JSON.parse(e.target.value))
+                    } catch (err) {
+                      // Allow typing, validate on submit or blur if needed
+                      // For now just treating as text until parsed
+                    }
+                  }}
+                  className="min-h-[150px] font-mono"
+                />
+              </div>
+
+              {runResult && (
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg overflow-auto max-h-[300px]">
+                  <h4 className="text-sm font-semibold mb-2">运行结果:</h4>
+                  <pre className="text-xs font-mono whitespace-pre-wrap">
+                    {JSON.stringify(runResult, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <AnimatedButton
+                variant="outline"
+                onClick={() => setIsRunDialogOpen(false)}
+                disabled={isRunning}
+              >
+                关闭
+              </AnimatedButton>
+              <AnimatedButton
+                onClick={handleRunApp}
+                disabled={isRunning}
+                variant="gradient"
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    运行中...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-2 h-4 w-4" />
+                    运行
+                  </>
+                )}
+              </AnimatedButton>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
 }
+
