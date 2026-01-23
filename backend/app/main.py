@@ -16,7 +16,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
-app.include_router(dify.router, prefix="/api/dify", tags=["dify"])
+app.include_router(dify.router, prefix="/api", tags=["dify"])
 app.include_router(admin.router, prefix="/api", tags=["admin"])
 app.include_router(oauth.router, prefix="/api", tags=["oauth"])
 

@@ -35,7 +35,7 @@ if not exist "venv" (
 call venv\Scripts\activate
 echo Installing dependencies...
 pip install -r requirements.txt -q
-echo Starting backend server (port 8000)...
+echo Starting backend server (port 8001)...
 start "Backend Server" cmd /k "cd /d "%SCRIPT_DIR%backend" && venv\Scripts\activate && python run.py"
 cd /d "%SCRIPT_DIR%"
 echo [OK] Backend server started
@@ -76,5 +76,5 @@ pause
 cd dify\docker
 docker compose -p amz-auto-ai down
 cd /d "%SCRIPT_DIR%"
-docker-compose down
+docker compose down
 echo All services stopped

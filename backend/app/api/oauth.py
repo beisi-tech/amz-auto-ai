@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from authlib.jose import jwt, JsonWebKey
-from authlib.oauth2.rfc6749 import Grants
+# from authlib.oauth2.rfc6749 import Grants  # Removed unused import causing error
 from authlib.integrations.starlette_client import OAuth
 from datetime import datetime, timedelta
 import time
@@ -11,7 +11,8 @@ import uuid
 from app.database import get_db
 from app.config import settings
 from app.schemas.user import User
-from app.api.auth import get_current_user, authenticate_user, create_access_token
+from app.models import User as UserModel # Import UserModel
+from app.api.auth import get_current_user, create_access_token
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ JWK_KEY = {"kty": "oct", "k": settings.secret_key[:32], "alg": "HS256", "kid": "
 
 @router.get("/.well-known/openid-configuration")
 async def openid_configuration():
-    base_url = "http://host.docker.internal:8000" # Dify 访问 AMZ 后端的地址
+    base_url = "http://host.docker.internal:8001" # Dify 访问 AMZ 后端的地址
     return {
         "issuer": base_url,
         "authorization_endpoint": f"{base_url}/api/oauth/authorize",
@@ -77,12 +78,12 @@ async def token(
     
     # 模拟用户 (管理员)
     user_id = 1 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
     
     now = int(time.time())
     
     id_token_payload = {
-        "iss": "http://host.docker.internal:8000",
+        "iss": "http://host.docker.internal:8001",
         "sub": str(user.id),
         "aud": client_id,
         "exp": now + 3600,

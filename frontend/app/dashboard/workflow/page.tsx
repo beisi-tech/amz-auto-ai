@@ -46,7 +46,7 @@ export default function WorkflowListPage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/api/dify/apps', {
+      const response = await fetch('http://localhost:8001/api/dify/apps', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -129,7 +129,7 @@ export default function WorkflowListPage() {
     setRunResult(null)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:8000/api/dify/apps/${selectedApp.id}/run`, {
+      const response = await fetch(`http://localhost:8001/api/dify/apps/${selectedApp.id}/run`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

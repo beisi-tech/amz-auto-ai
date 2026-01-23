@@ -49,7 +49,7 @@ export default function AdminPage() {
       }
 
       // 获取当前用户信息
-      const userResponse = await axios.get('http://localhost:8000/api/auth/me', {
+      const userResponse = await axios.get('http://localhost:8001/api/auth/me', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -77,7 +77,7 @@ export default function AdminPage() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('http://localhost:8000/api/admin/users', {
+      const response = await axios.get('http://localhost:8001/api/admin/users', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -94,7 +94,7 @@ export default function AdminPage() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('http://localhost:8000/api/admin/stats', {
+      const response = await axios.get('http://localhost:8001/api/admin/stats', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -109,7 +109,7 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem('token')
       await axios.post(
-        'http://localhost:8000/api/admin/grant-admin',
+        'http://localhost:8001/api/admin/grant-admin',
         { user_id: parseInt(userId) },
         {
           headers: {
@@ -130,7 +130,7 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem('token')
       await axios.post(
-        'http://localhost:8000/api/admin/revoke-admin',
+        'http://localhost:8001/api/admin/revoke-admin',
         { user_id: parseInt(userId) },
         {
           headers: {
@@ -151,7 +151,7 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem('token')
       await axios.post(
-        'http://localhost:8000/api/admin/update-user-status',
+        'http://localhost:8001/api/admin/update-user-status',
         { user_id: parseInt(userId), is_active: isActive },
         {
           headers: {
@@ -175,7 +175,7 @@ export default function AdminPage() {
 
     try {
       const token = localStorage.getItem('token')
-      await axios.delete(`http://localhost:8000/api/admin/users/${userId}`, {
+      await axios.delete(`http://localhost:8001/api/admin/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

@@ -12,7 +12,7 @@ echo [OK] Application services stopped
 
 echo.
 echo Stopping all Docker services...
-docker-compose -f docker-compose-unified.yml down
+docker compose -f docker-compose-unified.yml down
 echo [OK] All Docker services stopped
 
 echo.

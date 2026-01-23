@@ -34,7 +34,7 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/register', {
+      const response = await fetch('http://localhost:8001/api/auth/register', {
         method: 'POST',
         mode: 'cors',
         headers: {
