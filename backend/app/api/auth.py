@@ -1,4 +1,8 @@
+import httpx
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -33,6 +37,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
+
+
+def verify_token_data(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        return payload
+    except jwt.JWTError:
+        return None
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
@@ -91,7 +103,7 @@ async def register(user: UserCreate, response: Response, db: Session = Depends(g
     if is_admin == 1:
         try:
             async with httpx.AsyncClient() as client:
-                # 调用 Dify 初始化接口
+                # 1. 调用 Dify 初始化接口
                 response = await client.post(
                     f"{settings.dify_base_url}/console/api/setup",
                     json={
@@ -101,14 +113,70 @@ async def register(user: UserCreate, response: Response, db: Session = Depends(g
                     },
                     timeout=10.0
                 )
-                if response.status_code in [200, 201]:
-                    logging.info("Dify admin initialized successfully")
+                
+                dify_token = None
+                
+                # 2. 如果初始化成功 (201) 或 已经初始化 (403)，尝试登录获取 Token
+                if response.status_code in [200, 201, 403]:
+                    if response.status_code == 403:
+                        logging.info("Dify already initialized. Attempting login...")
+                    else:
+                        logging.info("Dify admin initialized successfully")
+                    
+                    # 登录获取 Dify Token
+                    login_res = await client.post(
+                        f"{settings.dify_base_url}/console/api/login",
+                        json={"email": user.email, "password": user.password},
+                        timeout=10.0
+                    )
+                    
+                    if login_res.status_code == 200:
+                        dify_token = login_res.json().get("data", {}).get("access_token")
+                        logging.info("Dify login successful")
+                    else:
+                        logging.warning(f"Dify login failed: {login_res.status_code}")
+                        
                 else:
                     logging.warning(f"Dify init failed: {response.status_code} - {response.text}")
+                    # 如果 Dify 初始化失败 (比如密码不符合要求)，我们记录日志，但不阻断 AMZ 注册
+                    # 因为用户后续可以在 Dify 界面手动处理
+
+                # 3. 如果获取到了 Token，检查并创建默认工作区
+                if dify_token:
+                    # 获取工作区列表
+                    workspaces_res = await client.get(
+                        f"{settings.dify_base_url}/console/api/workspaces",
+                        headers={"Authorization": f"Bearer {dify_token}"},
+                        timeout=10.0
+                    )
+                    
+                    if workspaces_res.status_code == 200:
+                        workspaces = workspaces_res.json().get("workspaces", [])
+                        if not workspaces:
+                            # 只有当没有工作区时才创建
+                            await client.post(
+                                f"{settings.dify_base_url}/console/api/workspaces",
+                                headers={"Authorization": f"Bearer {dify_token}"},
+                                json={"name": "AMZ Workspace"},
+                                timeout=10.0
+                            )
+                            logging.info("Default AMZ Workspace created in Dify")
+                        else:
+                            logging.info(f"Dify workspaces already exist: {len(workspaces)}")
         except Exception as e:
             logging.error(f"Failed to sync with Dify: {e}")
 
     access_token = create_access_token(data={"sub": user.email})
+    
+    # 构造响应数据
+    response_data = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": jsonable_encoder(db_user)
+    }
+
+    # 使用 JSONResponse 来设置 Cookie 并返回
+    response = JSONResponse(content=response_data)
     
     # 设置 SSO Cookie
     response.set_cookie(
@@ -119,15 +187,11 @@ async def register(user: UserCreate, response: Response, db: Session = Depends(g
         samesite="lax",
     )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": db_user
-    }
+    return response
 
 
 @router.post("/login", response_model=Token)
-async def login(user_credentials: UserLogin, response: Response, db: Session = Depends(get_db)):
+async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     user = db.query(UserModel).filter(UserModel.email == user_credentials.email).first()
     if not user or not verify_password(user_credentials.password, user.hashed_password):
         raise HTTPException(
@@ -138,6 +202,16 @@ async def login(user_credentials: UserLogin, response: Response, db: Session = D
 
     access_token = create_access_token(data={"sub": user.email})
     
+    # 构造响应数据
+    response_data = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": jsonable_encoder(user)
+    }
+
+    # 使用 JSONResponse 来设置 Cookie 并返回
+    response = JSONResponse(content=response_data)
+    
     # 设置 SSO Cookie
     response.set_cookie(
         key="access_token",
@@ -147,11 +221,7 @@ async def login(user_credentials: UserLogin, response: Response, db: Session = D
         samesite="lax",
     )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user
-    }
+    return response
 
 
 @router.get("/me", response_model=User)

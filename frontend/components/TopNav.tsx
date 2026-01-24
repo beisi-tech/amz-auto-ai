@@ -41,7 +41,8 @@ export default function TopNav() {
   ]
 
   if (user?.is_admin === 1) {
-    menuItems.push({ icon: Shield, label: '管理员后台', path: '/admin' })
+    // 隐藏管理员后台入口，通过直接访问 /admin 进入
+    // menuItems.push({ icon: Shield, label: '管理员后台', path: '/admin' })
   }
 
   const handleLogout = () => {

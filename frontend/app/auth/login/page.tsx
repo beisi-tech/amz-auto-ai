@@ -43,7 +43,8 @@ export default function LoginPage() {
         toast.success('登录成功')
         
         if (redirect) {
-          window.location.href = redirect
+          // 确保重定向 URL 是完整的
+          window.location.href = decodeURIComponent(redirect)
         } else {
           router.push('/dashboard')
         }

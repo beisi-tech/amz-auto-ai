@@ -209,9 +209,13 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <Shield className="w-16 h-16 mx-auto mb-4 text-purple-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
+        <div className="text-center relative z-10">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-purple-600 animate-pulse" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">验证管理员权限...</h1>
         </div>
       </div>
@@ -219,14 +223,20 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
+      {/* Background Blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-400/10 rounded-full blur-3xl" />
+      </div>
+
       {/* Fixed Header */}
-      <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-10">
+      <div className="bg-white/80 backdrop-blur-md border-b border-gray-200/50 fixed top-0 left-0 right-0 z-40">
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Crown className="w-8 h-8 text-purple-600" />
+                <Shield className="w-8 h-8 text-purple-600" />
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   管理员后台
                 </h1>
@@ -234,7 +244,8 @@ export default function AdminPage() {
             </div>
             <AnimatedButton
               onClick={() => router.push('/dashboard')}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+              variant="gradient"
+              className="shadow-lg shadow-purple-500/20"
             >
               返回主界面
             </AnimatedButton>
@@ -246,7 +257,7 @@ export default function AdminPage() {
       <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Main Content */}
-      <div className="pl-64 pt-16">
+      <div className="pl-64 pt-16 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           
           {/* Dashboard Tab */}

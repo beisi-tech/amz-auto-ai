@@ -37,8 +37,16 @@ export default function RegisterPage() {
       return
     }
 
-    if (formData.password.length < 6) {
-      toast.error('密码长度至少为6位')
+    if (formData.password.length < 8) {
+      toast.error('密码长度至少为8位')
+      return
+    }
+
+    // 简单验证是否包含字母和数字
+    const hasLetter = /[a-zA-Z]/.test(formData.password)
+    const hasNumber = /[0-9]/.test(formData.password)
+    if (!hasLetter || !hasNumber) {
+      toast.error('密码必须包含字母和数字')
       return
     }
 
@@ -127,13 +135,13 @@ export default function RegisterPage() {
               id="password"
               type="password"
               label="密码"
-              placeholder="请输入密码（至少6位）"
+              placeholder="请输入密码（至少8位，包含字母和数字）"
               value={formData.password}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
               required
-              minLength={6}
+              minLength={8}
             />
 
             <Input

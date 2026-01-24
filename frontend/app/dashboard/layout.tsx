@@ -12,10 +12,30 @@ export default function DashboardLayout({
   const router = useRouter()
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/auth/login')
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (!res.ok) {
+          throw new Error('Unauthorized')
+        }
+      } catch (e) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        router.push('/auth/login')
+      }
     }
+
+    checkAuth()
   }, [router])
 
   return (

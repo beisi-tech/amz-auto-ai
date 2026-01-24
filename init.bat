@@ -10,14 +10,21 @@ set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
 echo [0/4] Cleaning up old containers...
+:check_docker
+docker version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Docker Desktop is NOT running!
+    echo Please start Docker Desktop and try again.
+    pause
+    exit /b 1
+)
 docker stop amz-auto-ai-redis docker-redis amz-auto-ai-dify-init 2>nul
 docker rm amz-auto-ai-redis docker-redis amz-auto-ai-dify-init 2>nul
 echo [OK] Old containers cleaned
 echo.
 
 echo [0.5/4] Initializing Dify permissions...
-docker-compose -f docker-compose-unified.yml --profile init up dify-init
-docker rm amz-auto-ai-dify-init 2>nul
+docker run --rm -v amz-auto-ai_dify_app_storage:/app/api/storage busybox:latest sh -c "echo 'Initializing permissions for /app/api/storage'; chown -R 1001:1001 /app/api/storage; echo 'Permissions initialized.'"
 echo [OK] Permissions initialized
 echo.
 

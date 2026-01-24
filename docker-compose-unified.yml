@@ -163,30 +163,6 @@ services:
 
   # ==================== Dify Services ====================
 
-  # Init container to fix permissions
-  dify-init:
-    image: busybox:latest
-    container_name: amz-auto-ai-dify-init
-    profiles:
-      - init
-    command:
-      - sh
-      - -c
-      - |
-        FLAG_FILE="/app/api/storage/.init_permissions"
-        if [ -f "$${FLAG_FILE}" ]; then
-          echo "Permissions already initialized. Exiting."
-          exit 0
-        fi
-        echo "Initializing permissions for /app/api/storage"
-        chown -R 1001:1001 /app/api/storage && touch "$${FLAG_FILE}"
-        echo "Permissions initialized. Exiting."
-    volumes:
-      - dify_app_storage:/app/api/storage
-    networks:
-      - amz-network
-    restart: "no"
-
   # Dify API service
   dify-api:
     image: langgenius/dify-api:1.11.4
@@ -207,11 +183,16 @@ services:
       SSO_PROTOCOL: oidc
       OIDC_CLIENT_ID: dify_client
       OIDC_CLIENT_SECRET: dify_secret
+      # Dify Backend (Container) -> AMZ Backend (Host)
       OIDC_ISSUER: http://host.docker.internal:8800
-      OIDC_AUTH_ENDPOINT: http://host.docker.internal:8800/api/oauth/authorize
+      # Dify Frontend (Browser) -> AMZ Backend (Host via localhost)
+      OIDC_AUTH_ENDPOINT: http://localhost:8800/api/oauth/authorize
+      # Dify Backend (Container) -> AMZ Backend (Host)
       OIDC_TOKEN_ENDPOINT: http://host.docker.internal:8800/api/oauth/token
       OIDC_USER_INFO_ENDPOINT: http://host.docker.internal:8800/api/oauth/userinfo
       OIDC_JWKS_URI: http://host.docker.internal:8800/api/oauth/jwks
+      # AMZ Backend -> Dify Frontend (Browser via localhost)
+      # 注意：这里必须是 Dify 前端能识别的回调地址
       OIDC_REDIRECT_URI: http://localhost:4080/console/api/oauth/callback/oidc
       # Important: Allow host access
     extra_hosts:
@@ -244,6 +225,9 @@ services:
       SENTRY_PROFILES_SAMPLE_RATE: ${API_SENTRY_PROFILES_SAMPLE_RATE:-1.0}
       PLUGIN_MAX_PACKAGE_SIZE: ${PLUGIN_MAX_PACKAGE_SIZE:-52428800}
       INNER_API_KEY_FOR_PLUGIN: ${PLUGIN_DIFY_INNER_API_KEY:-QaHbTe77CtuXmsfyhR7+vRjI/+XbV1AaFy691iy+kGDv2Jvy0/eAh8Y1}
+      # Fix Plugin Daemon Connection
+      PLUGIN_REMOTE_INSTALL_HOST: dify-plugin-daemon
+      PLUGIN_REMOTE_INSTALL_PORT: 5002
     depends_on:
       # dify-init:
       #   condition: service_completed_successfully
@@ -405,6 +389,8 @@ services:
     image: langgenius/dify-plugin-daemon:0.5.2-local
     container_name: amz-auto-ai-dify-plugin-daemon
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       <<: *shared-api-worker-env
       DB_DATABASE: ${DB_PLUGIN_DATABASE:-dify_plugin}
@@ -486,3 +472,7 @@ services:
     networks:
       - ssrf_proxy_network
       - amz-network
+    # Fix for port conflict with Docker Desktop on Windows
+    # Do NOT expose ports to host, internal use only within docker network
+    # ports:
+    #   - "3128:3128"

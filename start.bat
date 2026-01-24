@@ -1,30 +1,28 @@
 @echo off
 chcp 65001 >nul
 echo ========================================
-echo AMZ Auto AI - Quick Start
+echo AMZ Auto AI - Quick Start (App Only)
 echo ========================================
 echo.
 
 set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
-echo [1/3] Ensuring Docker services are running...
-docker-compose -f docker-compose-unified.yml up -d
-echo [OK] Docker services checked
+echo [INFO] Assuming Docker services (Postgres, Redis, Dify) are already running.
+echo [INFO] If not, please run 'init.bat' or 'docker compose up -d' manually.
+echo.
 
-echo [2/3] Starting Backend...
+echo [1/2] Starting Backend...
 start "Backend Server" cmd /k "cd /d "%SCRIPT_DIR%backend" && venv\Scripts\activate && python run.py"
 
-echo [3/3] Starting Frontend...
+echo [2/2] Starting Frontend...
 start "Frontend Server" cmd /k "cd /d "%SCRIPT_DIR%frontend" && npm run dev"
 
 echo.
 echo ========================================
-echo Services started!
+echo Application services started!
 echo ========================================
 echo Frontend: http://localhost:4070
 echo Backend:  http://localhost:8800
-echo Dify UI:  http://localhost:4080
-echo Dify API: http://localhost:5001
 echo.
 pause
